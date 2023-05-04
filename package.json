@@ -1,0 +1,22 @@
+{
+  "name": "typerestjs",
+  "version": "0.1.0",
+  "description": "A Type-safe RESTful server framework made with Zod & Fastify",
+  "main": "index.js",
+  "license": "MIT",
+  "author": {
+    "name": "Jonas Roussel",
+    "email": "go.jroussel@gmail.com",
+    "url": "https://github.com/jonasroussel"
+  },
+  "keywords": [
+    "type",
+    "safe",
+    "restful",
+    "server",
+    "framework",
+    "zod",
+    "fastify"
+  ],
+  "scripts": {}
+}
