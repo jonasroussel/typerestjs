@@ -1,4 +1,4 @@
 export { Logger } from './logger'
-export { Server } from './server'
+export { Server, Is, RequestError, ResponseError } from './server'
 
 export type * from './types'
