@@ -1,22 +1,48 @@
 {
-  "name": "typerestjs",
-  "version": "0.1.0",
-  "description": "A Type-safe RESTful server framework made with Zod & Fastify",
-  "main": "index.js",
-  "license": "MIT",
-  "author": {
-    "name": "Jonas Roussel",
-    "email": "go.jroussel@gmail.com",
-    "url": "https://github.com/jonasroussel"
-  },
-  "keywords": [
-    "type",
-    "safe",
-    "restful",
-    "server",
-    "framework",
-    "zod",
-    "fastify"
-  ],
-  "scripts": {}
+	"name": "typerestjs",
+	"version": "0.1.1",
+	"description": "A Type-safe RESTful server framework made with Zod & Fastify",
+	"license": "MIT",
+	"main": "lib/index.js",
+	"files": [
+		"lib"
+	],
+	"homepage": "https://github.com/jonasroussel/typerestjs",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/jonasroussel/typerestjs.git"
+	},
+	"bugs": {
+		"url": "https://github.com/jonasroussel/typerestjs/issues"
+	},
+	"author": {
+		"name": "Jonas Roussel",
+		"email": "go.jroussel@gmail.com",
+		"url": "https://github.com/jonasroussel"
+	},
+	"keywords": [
+		"type",
+		"safe",
+		"restful",
+		"server",
+		"framework",
+		"zod",
+		"fastify"
+	],
+	"scripts": {
+		"build": "npm run clean && tsc",
+		"clean": "rimraf lib/*"
+	},
+	"devDependencies": {
+		"@types/glob": "^8.1.0",
+		"@types/node": "^18.16.3",
+		"prettier": "^2.8.8",
+		"rimraf": "^5.0.0",
+		"typescript": "^5.0.4"
+	},
+	"dependencies": {
+		"fastify": "^4.17.0",
+		"glob": "^10.2.2",
+		"zod": "^3.21.4"
+	}
 }
