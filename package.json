@@ -1,6 +1,6 @@
 {
 	"name": "typerestjs",
-	"version": "0.1.3",
+	"version": "0.1.4",
 	"description": "A Type-safe RESTful server framework made with Zod & Fastify",
 	"license": "MIT",
 	"main": "lib/index.js",
