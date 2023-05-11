@@ -1,5 +1,16 @@
+import type { FastifyCookieOptions } from '@fastify/cookie'
+import type { FastifyCorsOptions } from '@fastify/cors'
+import type { FastifyMultipartOptions } from '@fastify/multipart'
+import type { FastifyRateLimitOptions } from '@fastify/rate-limit'
 import type { FastifyContextConfig, FastifyReply, FastifyRequest } from 'fastify'
 import type { ZodTypeAny, input, output } from 'zod'
+
+export type PluginsOptions = {
+	cors: FastifyCorsOptions
+	cookie: FastifyCookieOptions
+	multipart: FastifyMultipartOptions
+	'rate-limit': FastifyRateLimitOptions
+}
 
 export interface Schema {
 	querystring?: ZodTypeAny

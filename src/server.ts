@@ -3,9 +3,10 @@ import fastify, {
 	FastifyError,
 	FastifyInstance,
 	FastifyListenOptions,
+	FastifyRegisterOptions,
 	FastifyReply,
 	FastifyServerOptions,
-	FastifyTypeProvider
+	FastifyTypeProvider,
 } from 'fastify'
 import { glob } from 'glob'
 import { ServerResponse as HTTPResponse, Server as HTTPServer, IncomingMessage } from 'http'
@@ -13,7 +14,7 @@ import path from 'path'
 import { ZodAny, ZodIssue, ZodTypeAny, z } from 'zod'
 
 import { Logger } from './logger'
-import { Route, ServerReply } from './types'
+import { PluginsOptions, Route, ServerReply } from './types'
 import { parseDatesInObject, parseStringValue } from './utils'
 
 // Error thrown when the request schema validation failed
@@ -243,6 +244,10 @@ export class Server {
 		})
 	}
 
+	async enable<T extends keyof PluginsOptions>(plugin: T, opts?: FastifyRegisterOptions<PluginsOptions[T]>) {
+		await this.instance.register(await import(`@fastify/${plugin}`), opts)
+	}
+
 	async on(event: 'ready' | 'error', action: (...args: any[]) => Promise<void> | void) {
 		switch (event) {
 			case 'ready':
@@ -308,9 +313,9 @@ export class Server {
 	}
 }
 
-//--------------//
-// SERVER TYPES //
-//--------------//
+//-----------//
+// VALIDATOR //
+//-----------//
 
 export const Is = {
 	...z,
