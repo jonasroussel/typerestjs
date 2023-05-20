@@ -1,13 +1,25 @@
 import type { FastifyCookieOptions } from '@fastify/cookie'
 import type { FastifyCorsOptions } from '@fastify/cors'
+import type { FastifyMultipartBaseOptions } from '@fastify/multipart'
 import type { RateLimitOptions, RateLimitPluginOptions } from '@fastify/rate-limit'
-import type { FastifyContextConfig, FastifyReply, FastifyRequest } from 'fastify'
-import type { ZodTypeAny, input, output } from 'zod'
+import type { FastifyContextConfig, FastifyReply, FastifyRequest, FastifyTypeProvider } from 'fastify'
+import type { ZodTypeAny, input, output, z } from 'zod'
+
+declare module 'fastify' {
+	interface FastifyContextConfig extends Record<string, any> {
+		rateLimit?: RateLimitOptions
+		multipartLimits?: FastifyMultipartBaseOptions['limits']
+	}
+}
 
 export type PluginsOptions = {
 	cors: FastifyCorsOptions
 	cookie: FastifyCookieOptions
 	'rate-limit': RateLimitPluginOptions
+}
+
+export interface ZodTypeProvider extends FastifyTypeProvider {
+	output: this['input'] extends ZodTypeAny ? z.infer<this['input']> : never
 }
 
 export interface Schema {
@@ -61,10 +73,6 @@ export type Handler<T extends SchemaType<Schema> = any> = (
 	reply: ServerReply<T>
 ) => Promise<FastifyReply>
 
-interface RouteConfig extends FastifyContextConfig {
-	rateLimit: RateLimitOptions
-}
-
 export type Route<
 	T extends SchemaType<Schema> = SchemaType<{
 		body: ZodTypeAny
@@ -78,5 +86,5 @@ export type Route<
 	middlewares?: Middleware<T>[]
 	schema?: Schema
 	handler: Handler<T>
-	config?: RouteConfig
+	config?: FastifyContextConfig
 }

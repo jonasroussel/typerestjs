@@ -67,3 +67,17 @@ export const parseStringValue = (value: string): string | boolean | number | Dat
 		return value
 	}
 }
+
+/**
+ * Returns the pathname of the input URL.
+ *
+ * @param input - The input URL.
+ * @returns The pathname of the input URL.
+ */
+export const pathOf = (input?: string) => {
+	if (!input) return
+	try {
+		const url = new URL(input.startsWith('/') ? `http://127.0.0.1${input}` : input)
+		return url.pathname
+	} catch (_) {}
+}

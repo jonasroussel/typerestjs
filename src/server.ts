@@ -1,21 +1,34 @@
+import multipart, { FastifyMultipartBaseOptions, Multipart, MultipartFile } from '@fastify/multipart'
+import { randomUUID } from 'crypto'
 import fastify, {
 	FastifyBaseLogger,
-	FastifyError,
 	FastifyInstance,
 	FastifyListenOptions,
 	FastifyRegisterOptions,
-	FastifyReply,
 	FastifyServerOptions,
-	FastifyTypeProvider,
 } from 'fastify'
+import { createWriteStream } from 'fs'
+import { unlink } from 'fs/promises'
 import { glob } from 'glob'
 import { ServerResponse as HTTPResponse, Server as HTTPServer, IncomingMessage } from 'http'
-import path from 'path'
+import { extensions } from 'mime-types'
+import { tmpdir } from 'os'
+import { resolve } from 'path'
+import { pipeline } from 'stream/promises'
 import { ZodAny, ZodIssue, ZodTypeAny, z } from 'zod'
 
+import {
+	isField,
+	isFile,
+	replyBadRequest,
+	replyBadResponse,
+	replyFileTooLarge,
+	replyUnknownError,
+	replyWrapper,
+} from './helpers'
 import { Logger } from './logger'
-import { PluginsOptions, Route, ServerReply } from './types'
-import { parseDatesInObject, parseStringValue } from './utils'
+import { PluginsOptions, Route, ServerRequest, ZodTypeProvider } from './types'
+import { parseDatesInObject, parseStringValue, pathOf } from './utils'
 
 // Error thrown when the request schema validation failed
 export class RequestError extends Error {
@@ -37,114 +50,6 @@ export class ResponseError extends Error {
 	}
 }
 
-// Type Provider for Zod
-interface ZodTypeProvider extends FastifyTypeProvider {
-	output: this['input'] extends ZodTypeAny ? z.infer<this['input']> : never
-}
-
-//------------------//
-// HELPER FUNCTIONS //
-//------------------//
-
-const replyWrapper = (reply: FastifyReply): ServerReply<any> => {
-	return {
-		success: (status, result) => {
-			let intStatus = typeof status === 'number' ? status : parseInt(status.toString())
-			if (Number.isNaN(status)) intStatus = 200
-
-			return reply.status(intStatus).send({
-				success: true,
-				data: result,
-			})
-		},
-
-		error: (status, type, message) => {
-			let intStatus = typeof status === 'number' ? status : parseInt(status.toString())
-			if (Number.isNaN(status) || intStatus < 400) intStatus = 400
-
-			return reply.status(intStatus).send({
-				success: false,
-				error: {
-					type: type,
-					message: message,
-				},
-			})
-		},
-
-		custom: () => reply,
-	}
-}
-
-const pathOf = (input?: string) => {
-	if (!input) return
-	try {
-		const url = new URL(input.startsWith('/') ? `http://127.0.0.1${input}` : input)
-		return url.pathname
-	} catch (_) {}
-}
-
-const replyBadRequest = (error: RequestError, reply: FastifyReply, metadata?: any) => {
-	const response = {
-		success: false,
-		error: {
-			type: 'bad_request',
-			message: 'Oops! Looks like there was a problem with your request.',
-			details: error.issues.map((issue) => {
-				const { path, code, message, ...rest } = issue
-
-				return {
-					field: path.join('.'),
-					type: code,
-					message: message,
-					...rest,
-				}
-			}),
-		},
-	}
-
-	Logger.error('http', error, { ...metadata, status: 400, response })
-
-	reply.status(400).send(response)
-}
-
-const replyBadResponse = (error: ResponseError, reply: FastifyReply, metadata?: any) => {
-	const response = {
-		success: false,
-		error: {
-			type: 'bad_response',
-			message: 'Something went wrong with your request while generating the response',
-			details: error.issues.map((issue) => {
-				const { path, code, message, ...rest } = issue
-
-				return {
-					field: path.join('.'),
-					type: code,
-					message: message,
-					...rest,
-				}
-			}),
-		},
-	}
-
-	Logger.crit('http', error, { ...metadata, status: 500, response })
-
-	reply.status(500).send(response)
-}
-
-const replyUnknownError = (error: FastifyError, reply: FastifyReply, metadata?: any) => {
-	const response = {
-		success: false,
-		error: {
-			type: 'unknown_error',
-			message: 'An unknown error has occurred during the request.',
-		},
-	}
-
-	Logger.crit('server', error, { ...metadata, status: 500, response })
-
-	reply.status(500).send(response)
-}
-
 //------------------//
 // SERVER COMPONENT //
 //------------------//
@@ -158,7 +63,11 @@ export class Server {
 		ZodTypeProvider
 	>
 
-	constructor(options?: FastifyServerOptions<HTTPServer, FastifyBaseLogger>) {
+	constructor(
+		options?: FastifyServerOptions<HTTPServer, FastifyBaseLogger> & {
+			multipartLimits?: FastifyMultipartBaseOptions['limits']
+		}
+	) {
 		this.instance = fastify({
 			// Recommended
 			connectionTimeout: 60_000, // 60s
@@ -207,19 +116,76 @@ export class Server {
 
 			if (error instanceof RequestError) return replyBadRequest(error, reply, metadata)
 			else if (error instanceof ResponseError) return replyBadResponse(error, reply, metadata)
-			else return replyUnknownError(error, reply, metadata)
+			else if (error.code === 'FST_REQ_FILE_TOO_LARGE') {
+				return replyFileTooLarge(error, reply, {
+					...metadata,
+					limit: options?.multipartLimits?.fileSize ?? 256 * 1_048_576,
+				})
+			} else return replyUnknownError(error, reply, metadata)
+		})
+
+		// Register the multipart plugin to handle multipart/form-data requests
+		this.instance.register(multipart, {
+			attachFieldsToBody: true,
+			throwFileSizeLimit: true,
+			onFile: async function (part: MultipartFile & { filepath?: string }) {
+				let filename = randomUUID()
+
+				const exts = extensions[part.mimetype] || []
+				if (exts.length === 1) filename += `.${exts[0]}`
+				else if (exts.length > 1) filename += '.' + (exts[0].length < exts[1].length ? exts[0] : exts[1])
+
+				const path = `${tmpdir()}/${filename}`
+
+				try {
+					await pipeline(part.file, createWriteStream(path))
+
+					part.filepath = path
+					this.socket.on('close', () => unlink(path))
+				} catch (_) {
+					await unlink(path)
+				}
+			},
+			limits: {
+				fieldSize: 32 * 1_048_576, // 32 MB,
+				fileSize: 256 * 1_048_576, // 256 MB
+				files: 10,
+				...options?.multipartLimits,
+			},
 		})
 
 		// Request parsing for all incoming requests
-		this.instance.addHook('onRequest', async (req, reply) => {
-			req.params ??= {}
-			req.query ??= {}
-			req.body = parseDatesInObject(req.body ?? {})
+		this.instance.addHook('preValidation', async (req: ServerRequest) => {
+			if (req.isMultipart()) {
+				const body: Multipart[] = Object.values(req.body ?? {})
 
-			const query = req.query as any
+				const fields = body.filter(isField)
+				const files = body.filter(isFile)
 
-			for (let key in query) {
-				query[key] = parseStringValue(query[key])
+				req.body = {}
+
+				for (let field of fields) {
+					req.body[field.fieldname] = field.value
+				}
+
+				for (let file of files) {
+					req.body[file.fieldname] = {
+						path: file.filepath,
+						filename: file.filename,
+						size: file.file.bytesRead,
+						mimetype: file.mimetype,
+					}
+				}
+			} else {
+				req.params ??= {}
+				req.query ??= {}
+				req.body = parseDatesInObject(req.body ?? {})
+
+				const query = req.query as any
+
+				for (let key in query) {
+					query[key] = parseStringValue(query[key])
+				}
 			}
 		})
 
@@ -268,7 +234,7 @@ export class Server {
 
 			await Promise.all(
 				files.map(async (file) => {
-					const expt = await import(path.resolve(file))
+					const expt = await import(resolve(file))
 					const router = expt[Object.keys(expt)[0]]
 					const { PREFIX = '', ...routes } = router
 
@@ -319,6 +285,13 @@ export class Server {
 
 export const Is = {
 	...z,
+	file: (mimetype?: RegExp) =>
+		z.object({
+			path: z.string(),
+			filename: z.string(),
+			size: z.number(),
+			mimetype: mimetype ? z.string().regex(mimetype) : z.string(),
+		}),
 	success: <Z extends ZodTypeAny>(data: Z) =>
 		z.object({
 			success: z.literal(true),
