@@ -15,20 +15,12 @@ import { extensions } from 'mime-types'
 import { tmpdir } from 'os'
 import { resolve } from 'path'
 import { pipeline } from 'stream/promises'
-import { ZodAny, ZodIssue, ZodTypeAny, z } from 'zod'
+import { ZodAny, ZodIssue } from 'zod'
 
-import {
-	isField,
-	isFile,
-	replyBadRequest,
-	replyBadResponse,
-	replyFileTooLarge,
-	replyUnknownError,
-	replyWrapper,
-} from './helpers'
+import { replyBadRequest, replyBadResponse, replyFileTooLarge, replyUnknownError, replyWrapper } from './helpers'
 import { Logger } from './logger'
 import { PluginsOptions, Route, ServerRequest, ZodTypeProvider } from './types'
-import { parseDatesInObject, parseStringValue, pathOf } from './utils'
+import { isField, isFile, parseDatesInObject, parseStringValue, pathOf } from './utils'
 
 // Error thrown when the request schema validation failed
 export class RequestError extends Error {
@@ -49,10 +41,6 @@ export class ResponseError extends Error {
 		this.issues = issues
 	}
 }
-
-//------------------//
-// SERVER COMPONENT //
-//------------------//
 
 export class Server {
 	public instance: FastifyInstance<
@@ -245,6 +233,23 @@ export class Server {
 							this.instance.route({
 								url: `${PREFIX}${path.replace(/\/+$/, '')}`,
 								...props,
+								preParsing: (req, _, payload, done) => {
+									if (req.routeConfig.rawBody === true) {
+										const chunks: Buffer[] = []
+
+										payload.on('data', (chunk) => {
+											if (payload.readableEncoding) chunks.push(Buffer.from(chunk, payload.readableEncoding))
+											else chunks.push(chunk)
+										})
+
+										payload.on('end', () => {
+											req.rawBody = Buffer.concat(chunks)
+											req.encoding = payload.readableEncoding ?? undefined
+										})
+									}
+
+									done(null, payload)
+								},
 								...(middlewares
 									? {
 											preValidation: async (req, reply) => {
@@ -277,32 +282,4 @@ export class Server {
 
 		Logger.info('server', `Server listening at http://${host}:${port}`)
 	}
-}
-
-//-----------//
-// VALIDATOR //
-//-----------//
-
-export const Is = {
-	...z,
-	file: (mimetype?: RegExp) =>
-		z.object({
-			path: z.string(),
-			filename: z.string(),
-			size: z.number(),
-			mimetype: mimetype ? z.string().regex(mimetype) : z.string(),
-		}),
-	success: <Z extends ZodTypeAny>(data: Z) =>
-		z.object({
-			success: z.literal(true),
-			data: data,
-		}),
-	error: <Z extends string>(type: Z) =>
-		z.object({
-			success: z.literal(false),
-			error: z.object({
-				type: z.literal(type),
-				message: z.string(),
-			}),
-		}),
 }

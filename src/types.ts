@@ -9,6 +9,12 @@ declare module 'fastify' {
 	interface FastifyContextConfig extends Record<string, any> {
 		rateLimit?: RateLimitOptions
 		multipartLimits?: FastifyMultipartBaseOptions['limits']
+		rawBody?: boolean
+	}
+
+	interface FastifyRequest {
+		rawBody?: Buffer
+		encoding?: BufferEncoding
 	}
 }
 

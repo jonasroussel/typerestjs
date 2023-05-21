@@ -1,3 +1,5 @@
+import { Multipart, MultipartValue, SavedMultipartFile } from '@fastify/multipart'
+
 export const DATE_REGEX = /^(\d{4})-0?(\d+)-0?(\d+)[T ]0?(\d+):0?(\d+)(:0?(\d+))?(\.(\d{3})Z?)?$/
 
 /**
@@ -81,3 +83,19 @@ export const pathOf = (input?: string) => {
 		return url.pathname
 	} catch (_) {}
 }
+
+/**
+ * Checks if the input is a field in a multipart form.
+ *
+ * @param input - The input to be checked.
+ * @returns A boolean value indicating whether the input is a field.
+ */
+export const isField = (input: Multipart): input is MultipartValue<string> => input.type === 'field'
+
+/**
+ * Checks if the input is a file in a multipart form.
+ *
+ * @param input - The input to be checked.
+ * @returns A boolean value indicating whether the input is a file.
+ */
+export const isFile = (input: Multipart): input is SavedMultipartFile => input.type === 'file'

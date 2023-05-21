@@ -1,4 +1,3 @@
-import { Multipart, MultipartValue, SavedMultipartFile } from '@fastify/multipart'
 import { FastifyError, FastifyReply } from 'fastify'
 
 import { Logger } from './logger'
@@ -145,19 +144,3 @@ export const replyUnknownError = (error: FastifyError, reply: FastifyReply, meta
 
 	reply.status(500).send(response)
 }
-
-/**
- * Checks if the input is a field in a multipart form.
- *
- * @param input - The input to be checked.
- * @returns A boolean value indicating whether the input is a field.
- */
-export const isField = (input: Multipart): input is MultipartValue<string> => input.type === 'field'
-
-/**
- * Checks if the input is a file in a multipart form.
- *
- * @param input - The input to be checked.
- * @returns A boolean value indicating whether the input is a file.
- */
-export const isFile = (input: Multipart): input is SavedMultipartFile => input.type === 'file'
