@@ -12,7 +12,7 @@ import { ServerReply } from './types'
  */
 export const replyWrapper = (reply: FastifyReply): ServerReply<any> => {
 	return {
-		success: (status, result) => {
+		success: (...[status, result]) => {
 			let intStatus = typeof status === 'number' ? status : parseInt(status.toString())
 			if (Number.isNaN(status)) intStatus = 200
 
