@@ -58,12 +58,11 @@ export type ServerRequest<T extends SchemaType<Schema> = any> = {
 
 export type ServerReply<T extends SchemaType<Schema> = any> = {
 	success: <R extends keyof T['response']>(
-		status: R,
-		result: T['response'][R]['error'] extends Object ? T['response'][R]['error']['type'] : T['response'][R]['data']
+		...args: T['response'][R]['data'] extends undefined ? [status: R] : [status: R, data: T['response'][R]['data']]
 	) => FastifyReply
 	error: <R extends keyof T['response']>(
 		status: R,
-		result: T['response'][R]['error'] extends Object ? T['response'][R]['error']['type'] : T['response'][R]['data'],
+		type: T['response'][R]['error']['type'],
 		message?: string
 	) => FastifyReply
 	custom: () => FastifyReply
