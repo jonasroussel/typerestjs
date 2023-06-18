@@ -1,19 +1,13 @@
 import multipart, { FastifyMultipartBaseOptions, Multipart, MultipartFile } from '@fastify/multipart'
 import { randomUUID } from 'crypto'
-import fastify, {
-	FastifyBaseLogger,
-	FastifyInstance,
-	FastifyListenOptions,
-	FastifyRegisterOptions,
-	FastifyServerOptions,
-} from 'fastify'
+import fastify, { FastifyBaseLogger, FastifyInstance, FastifyListenOptions, FastifyServerOptions } from 'fastify'
 import { createWriteStream } from 'fs'
 import { unlink } from 'fs/promises'
 import { glob } from 'glob'
 import { ServerResponse as HTTPResponse, Server as HTTPServer, IncomingMessage } from 'http'
 import { extensions } from 'mime-types'
 import { tmpdir } from 'os'
-import { resolve } from 'path'
+import path from 'path'
 import { pipeline } from 'stream/promises'
 import { ZodAny, ZodIssue } from 'zod'
 
@@ -198,8 +192,18 @@ export class Server {
 		})
 	}
 
-	async enable<T extends keyof PluginsOptions>(plugin: T, opts?: FastifyRegisterOptions<PluginsOptions[T]>) {
-		await this.instance.register(await import(`@fastify/${plugin}`), opts)
+	async enable<T extends keyof PluginsOptions>(plugin: T, opts?: PluginsOptions[T]) {
+		if (plugin === 'static') {
+			const root = (opts as PluginsOptions['static'])?.root ?? 'public'
+			const newOpts = {
+				...opts,
+				root: (typeof root === 'string' ? [root] : root).map((root) => path.join(require.main!.path, '..', root)),
+			} as PluginsOptions['static']
+
+			await this.instance.register(await import('@fastify/static'), newOpts)
+		} else {
+			await this.instance.register(await import(`@fastify/${plugin}`), opts)
+		}
 	}
 
 	async on(event: 'ready' | 'error', action: (...args: any[]) => Promise<void> | void) {
@@ -222,7 +226,7 @@ export class Server {
 
 			await Promise.all(
 				files.map(async (file) => {
-					const expt = await import(resolve(file))
+					const expt = await import(path.resolve(file))
 					const router = expt[Object.keys(expt)[0]]
 					const { PREFIX = '', ...routes } = router
 

@@ -2,6 +2,7 @@ import type { FastifyCookieOptions } from '@fastify/cookie'
 import type { FastifyCorsOptions } from '@fastify/cors'
 import type { FastifyMultipartBaseOptions } from '@fastify/multipart'
 import type { RateLimitOptions, RateLimitPluginOptions } from '@fastify/rate-limit'
+import type { FastifyStaticOptions } from '@fastify/static'
 import type { FastifyContextConfig, FastifyReply, FastifyRequest, FastifyTypeProvider } from 'fastify'
 import type { ZodTypeAny, input, output, z } from 'zod'
 
@@ -22,6 +23,7 @@ export type PluginsOptions = {
 	cors: FastifyCorsOptions
 	cookie: FastifyCookieOptions
 	'rate-limit': RateLimitPluginOptions
+	static: FastifyStaticOptions
 }
 
 export interface ZodTypeProvider extends FastifyTypeProvider {
