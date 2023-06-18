@@ -1,6 +1,6 @@
 {
 	"name": "typerestjs",
-	"version": "0.3.1",
+	"version": "1.0.0",
 	"description": "A Type-safe RESTful server framework made with Zod & Fastify",
 	"license": "MIT",
 	"main": "lib/index.js",
@@ -31,15 +31,8 @@
 	],
 	"scripts": {
 		"build": "npm run clean && tsc",
-		"clean": "rimraf lib/*"
-	},
-	"devDependencies": {
-		"@types/glob": "^8.1.0",
-		"@types/mime-types": "^2.1.1",
-		"@types/node": "^18.16.3",
-		"prettier": "^2.8.8",
-		"rimraf": "^5.0.0",
-		"typescript": "^5.0.4"
+		"clean": "rimraf lib/*",
+		"prepublishOnly": "npm run build"
 	},
 	"dependencies": {
 		"@fastify/cookie": "^8.3.0",
@@ -50,5 +43,13 @@
 		"glob": "^10.2.2",
 		"mime-types": "^2.1.35",
 		"zod": "^3.21.4"
+	},
+	"devDependencies": {
+		"@types/glob": "^8.1.0",
+		"@types/mime-types": "^2.1.1",
+		"@types/node": "^18.16.3",
+		"prettier": "^2.8.8",
+		"rimraf": "^5.0.0",
+		"typescript": "^5.0.4"
 	}
 }
