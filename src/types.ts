@@ -4,7 +4,7 @@ import type { FastifyMultipartBaseOptions } from '@fastify/multipart'
 import type { RateLimitOptions, RateLimitPluginOptions } from '@fastify/rate-limit'
 import type { FastifyStaticOptions } from '@fastify/static'
 import type { FastifyContextConfig, FastifyReply, FastifyRequest, FastifyTypeProvider } from 'fastify'
-import type { ZodTypeAny, input, output, z } from 'zod'
+import type { ZodType, ZodTypeAny, input, output, z } from 'zod'
 
 declare module 'fastify' {
 	interface FastifyContextConfig extends Record<string, any> {
@@ -51,6 +51,8 @@ export type SchemaType<S extends Schema> = {
 }
 
 export type ModelType<T extends ZodTypeAny> = output<T>
+
+export type CustomType<T> = ZodType<T>
 
 export type ServerRequest<T extends SchemaType<Schema> = any> = {
 	body: T['body']
