@@ -37,7 +37,7 @@ export interface Schema {
 	response: { [key in number | string]: ZodTypeAny }
 }
 
-export type SchemaType<S extends Schema> = {
+export interface SchemaType<S extends Schema> {
 	query: S['querystring'] extends ZodTypeAny ? output<S['querystring']> : {}
 	body: S['body'] extends ZodTypeAny ? output<S['body']> : {}
 	params: S['params'] extends ZodTypeAny ? output<S['params']> : {}
@@ -54,13 +54,13 @@ export type ModelType<T extends ZodTypeAny> = output<T>
 
 export type CustomType<T> = ZodType<T>
 
-export type ServerRequest<T extends SchemaType<Schema> = any> = {
+export interface ServerRequest<T extends SchemaType<Schema> = any> extends FastifyRequest {
 	body: T['body']
 	query: T['query']
 	params: T['params']
-} & FastifyRequest
+}
 
-export type ServerReply<T extends SchemaType<Schema> = any> = {
+export interface ServerReply<T extends SchemaType<Schema> = any> {
 	success: <R extends keyof T['response']>(
 		...args: T['response'][R]['data'] extends undefined ? [status: R] : [status: R, data: T['response'][R]['data']]
 	) => FastifyReply
