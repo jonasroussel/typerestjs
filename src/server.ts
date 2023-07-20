@@ -218,6 +218,8 @@ export class Server {
 	}
 
 	async start(options?: FastifyListenOptions) {
+		Logger.debug('server', 'Server starting...')
+
 		// Auto-import all existing routes
 		this.instance.after(async () => {
 			// @ts-ignore
@@ -284,6 +286,6 @@ export class Server {
 			port,
 		})
 
-		Logger.info('server', `Server listening at http://${host}:${port}`)
+		Logger.debug('server', `Server listening at http://${host}:${port}`)
 	}
 }
