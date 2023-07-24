@@ -277,7 +277,7 @@ export class Server {
 
 		await this.instance.ready()
 
-		const host = options?.host ?? 'localhost'
+		const host = options?.host ?? process.env.HOST ?? 'localhost'
 		const port = parseInt(options?.port?.toString() ?? process.env.PORT ?? '8080')
 
 		await this.instance.listen({
