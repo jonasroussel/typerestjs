@@ -13,7 +13,7 @@ import { ZodAny, ZodIssue } from 'zod'
 
 import { replyBadRequest, replyBadResponse, replyFileTooLarge, replyUnknownError, replyWrapper } from './helpers'
 import { Logger } from './logger'
-import { PluginsOptions, Route, ServerRequest, ZodTypeProvider } from './types'
+import { Middleware, PluginsOptions, Route, ServerRequest, ZodTypeProvider } from './types'
 import { isField, isFile, parseDatesInObject, parseStringValue, pathOf } from './utils'
 
 // Error thrown when the request schema validation failed
@@ -206,7 +206,11 @@ export class Server {
 		}
 	}
 
-	async on(event: 'ready' | 'error', action: (...args: any[]) => Promise<void> | void) {
+	use(middleware: Middleware) {
+		this.instance.addHook('preValidation', (req, reply) => middleware(req, replyWrapper(reply)))
+	}
+
+	on(event: 'ready' | 'error', action: (...args: any[]) => Promise<void> | void) {
 		switch (event) {
 			case 'ready':
 				this.instance.addHook('onReady', action)
