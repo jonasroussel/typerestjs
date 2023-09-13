@@ -196,7 +196,7 @@ export class Server {
 
 	async enable<T extends keyof PluginsOptions>(plugin: T, opts?: PluginsOptions[T]) {
 		if (plugin === 'static') {
-			const root = (opts as PluginsOptions['static'])?.root ?? 'public'
+			const root = (opts as PluginsOptions['static'])?.root?.toString?.() ?? 'public'
 			const newOpts = {
 				...opts,
 				root: (typeof root === 'string' ? [root] : root).map((root) => path.join(require.main!.path, '..', root)),
