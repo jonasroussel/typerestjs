@@ -90,7 +90,8 @@ export class Server {
 		this.instance.setErrorHandler((error, req, reply) => {
 			const metadata = {
 				method: req.method,
-				path: req.routerPath ?? pathOf(req.url) ?? req.url,
+				// @ts-ignore
+				path: req.routeOptions.config.url ?? pathOf(req.url) ?? req.url,
 				ip: req.ip,
 				params: req.params,
 				query: req.query,
@@ -175,7 +176,8 @@ export class Server {
 		this.instance.addHook('onResponse', async (req, reply) => {
 			const data = {
 				method: req.method,
-				path: req.routerPath ?? pathOf(req.url) ?? req.url,
+				// @ts-ignore
+				path: req.routeOptions.config.url ?? pathOf(req.url) ?? req.url,
 				ip: req.ip,
 				status: reply.statusCode,
 				rs: Math.round(reply.getResponseTime()),
@@ -244,7 +246,8 @@ export class Server {
 								url: `${PREFIX}${path.replace(/\/+$/, '')}`,
 								...props,
 								preParsing: (req, _, payload, done) => {
-									if (req.routeConfig.rawBody === true) {
+									// @ts-ignore
+									if (req.routeOptions.config.rawBody === true) {
 										const chunks: Buffer[] = []
 
 										payload.on('data', (chunk) => {
