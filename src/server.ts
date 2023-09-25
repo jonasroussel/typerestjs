@@ -1,3 +1,4 @@
+import formbody from '@fastify/formbody'
 import multipart, { FastifyMultipartBaseOptions, Multipart, MultipartFile } from '@fastify/multipart'
 import { randomUUID } from 'crypto'
 import fastify, { FastifyBaseLogger, FastifyInstance, FastifyListenOptions, FastifyServerOptions } from 'fastify'
@@ -135,6 +136,11 @@ export class Server {
 				files: 10,
 				...options?.multipartLimits,
 			},
+		})
+
+		// Register the formbody plugin to handle application/x-www-form-urlencoded requests
+		this.instance.register(formbody, {
+			bodyLimit: options?.bodyLimit ?? 32 * 1_048_576, // 32 MB,
 		})
 
 		// Request parsing for all incoming requests
