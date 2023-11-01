@@ -232,60 +232,64 @@ export class Server {
 	async start(options?: FastifyListenOptions) {
 		Logger.debug('server', 'Server starting...')
 
-		// Auto-import all existing routes
 		this.instance.after(async () => {
-			// @ts-ignore
-			const lang = process[Symbol.for('ts-node.register.instance')] ? 'ts' : 'js'
-			const files = await glob(lang === 'ts' ? './src/routes/**/*.ts' : './dist/routes/**/*.js')
+			const files = await glob('./dist/resources/*/*.{controller,route,schema,service}.js')
 
-			await Promise.all(
-				files.map(async (file) => {
-					const expt = await import(path.resolve(file))
-					const router = expt[Object.keys(expt)[0]]
-					const { PREFIX = '', ...routes } = router
+			const resources = files.reduce<Record<string, Record<string, string>>>((resources, file) => {
+				const [_, name, type] = file.match(/resources\/(\w+)\/\w+\.(controller|route|schema|service)\.js$/i) ?? []
+				if (!name || !type) return resources
 
-					for (let name in routes) {
-						try {
-							const { path, middlewares, handler, ...props } = routes[name] as Route
+				return { ...resources, [name]: { ...resources[name], [type]: file } }
+			}, {})
 
-							this.instance.route({
-								url: `${PREFIX}${path.replace(/\/+$/, '')}`,
-								...props,
-								preParsing: (req, _, payload, done) => {
-									// @ts-ignore
-									if (req.routeOptions.config.rawBody === true) {
-										const chunks: Buffer[] = []
+			for (let resourceName in resources) {
+				const resource = resources[resourceName]
 
-										payload.on('data', (chunk) => {
-											if (payload.readableEncoding) chunks.push(Buffer.from(chunk, payload.readableEncoding))
-											else chunks.push(chunk)
-										})
+				const expt = await import(path.resolve(resource.route))
+				const router = expt[Object.keys(expt)[0]]
+				const { PREFIX = '', ...routes } = router
 
-										payload.on('end', () => {
-											req.rawBody = Buffer.concat(chunks)
-											req.encoding = payload.readableEncoding ?? undefined
-										})
-									}
+				for (let routeName in routes) {
+					try {
+						const { path, middlewares, controller, ...props } = routes[routeName] as Route
 
-									done(null, payload)
-								},
-								...(middlewares
-									? {
-											preValidation: async (req, reply) => {
-												for (let middleware of middlewares) {
-													await middleware(req, replyWrapper(reply))
-												}
-											},
-									  }
-									: {}),
-								handler: (req, reply) => handler(req, replyWrapper(reply)),
-							})
-						} catch (_) {
-							Logger.warn('server', `${file}[${name}] fails to load`)
-						}
+						this.instance.route({
+							url: `${PREFIX}${path.replace(/\/+$/, '')}`,
+							...props,
+							preParsing: (req, _, payload, done) => {
+								// @ts-ignore
+								if (req.routeOptions.config.rawBody === true) {
+									const chunks: Buffer[] = []
+
+									payload.on('data', (chunk) => {
+										if (payload.readableEncoding) chunks.push(Buffer.from(chunk, payload.readableEncoding))
+										else chunks.push(chunk)
+									})
+
+									payload.on('end', () => {
+										req.rawBody = Buffer.concat(chunks)
+										req.encoding = payload.readableEncoding ?? undefined
+									})
+								}
+
+								done(null, payload)
+							},
+							...(middlewares
+								? {
+										preValidation: async (req, reply) => {
+											for (let middleware of middlewares) {
+												await middleware(req, replyWrapper(reply))
+											}
+										},
+								  }
+								: {}),
+							handler: (req, reply) => controller(req, replyWrapper(reply)),
+						})
+					} catch (_) {
+						Logger.warn('server', `Resource ${resourceName} fails to load`)
 					}
-				})
-			)
+				}
+			}
 		})
 
 		await this.instance.ready()

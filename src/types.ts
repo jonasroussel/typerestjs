@@ -77,7 +77,7 @@ export type Middleware<T extends SchemaType<Schema> = any> = (
 	reply: ServerReply<T>
 ) => Promise<any>
 
-export type Handler<T extends SchemaType<Schema> = any> = (
+export type Controller<T extends SchemaType<Schema> = any> = (
 	req: ServerRequest<T>,
 	reply: ServerReply<T>
 ) => Promise<FastifyReply>
@@ -94,6 +94,6 @@ export type Route<
 	path: `/${string}`
 	middlewares?: Middleware<T>[]
 	schema?: Schema
-	handler: Handler<T>
+	controller: Controller<T>
 	config?: FastifyContextConfig
 }
