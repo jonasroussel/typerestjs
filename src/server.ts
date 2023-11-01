@@ -12,10 +12,10 @@ import path from 'path'
 import { pipeline } from 'stream/promises'
 import { ZodAny, ZodIssue } from 'zod'
 
-import { replyBadRequest, replyBadResponse, replyFileTooLarge, replyUnknownError, replyWrapper } from './helpers'
-import { Logger } from './logger'
-import { Middleware, PluginsOptions, Route, ServerRequest, ZodTypeProvider } from './types'
-import { isField, isFile, parseDatesInObject, parseStringValue, pathOf } from './utils'
+import { replyBadRequest, replyBadResponse, replyFileTooLarge, replyUnknownError, replyWrapper } from './helpers.js'
+import { Logger } from './logger.js'
+import { Middleware, PluginsOptions, Route, ServerRequest, ZodTypeProvider } from './types.js'
+import { isField, isFile, parseDatesInObject, parseStringValue, pathOf } from './utils.js'
 
 // Error thrown when the request schema validation failed
 export class RequestError extends Error {
@@ -208,9 +208,9 @@ export class Server {
 				root: (typeof root === 'string' ? [root] : root).map((root) => path.join(require.main!.path, '..', root)),
 			} as PluginsOptions['static']
 
-			await this.instance.register(await import('@fastify/static'), newOpts)
+			await this.instance.register((await import('@fastify/static')).default, newOpts)
 		} else {
-			await this.instance.register(await import(`@fastify/${plugin}`), opts)
+			await this.instance.register((await import(`@fastify/${plugin}`)).default, opts)
 		}
 	}
 

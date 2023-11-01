@@ -1,8 +1,8 @@
 import { FastifyError, FastifyReply } from 'fastify'
 
-import { Logger } from './logger'
-import { RequestError, ResponseError } from './server'
-import { ServerReply } from './types'
+import { Logger } from './logger.js'
+import { RequestError, ResponseError } from './server.js'
+import { ServerReply } from './types.js'
 
 /**
  * Wraps the FastifyReply object to provide custom reply methods.
