@@ -1,0 +1,22 @@
+{
+	"name": "example",
+	"version": "0.1.0",
+	"main": "dist/index.js",
+	"type": "module",
+	"engines": {
+		"node": ">=18"
+	},
+	"scripts": {
+		"dev": "tsup --watch --onSuccess='node --enable-source-maps .'",
+		"build": "tsup",
+		"start": "node --enable-source-maps ."
+	},
+	"dependencies": {
+		"typerestjs": "file:../lib"
+	},
+	"devDependencies": {
+		"@types/node": "^20.9.1",
+		"tsup": "^7.3.0",
+		"typescript": "^5.2.2"
+	}
+}

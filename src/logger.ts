@@ -1,7 +1,7 @@
 export namespace Logger {
 	type Level = 'debug' | 'info' | 'warn' | 'error' | 'critical'
 	type Tag = string
-	type LogPipe = (level: Level, tag: Tag, msg: string | Error, metadata?: any) => Promise<void> | void
+	type LogPipe = (level: Level, tag: Tag, msg: string | Error, metadata?: Record<string, any>) => Promise<void> | void
 
 	const colorOfLevel: { [key in Level]: string } = {
 		debug: '90',
@@ -37,7 +37,8 @@ export namespace Logger {
 	 * @param msg - The log message or an Error object.
 	 * @param metadata - Optional metadata attached to the log.
 	 */
-	export const debug = (tag: Tag, msg: string | Error, metadata?: any) => log('debug', tag, msg, metadata)
+	export const debug = (tag: Tag, msg: string | Error, metadata?: Record<string, any>) =>
+		log('debug', tag, msg, metadata)
 	/**
 	 * Logs an `info` message in the stdout and all the log pipes.
 	 *
@@ -45,7 +46,7 @@ export namespace Logger {
 	 * @param msg - The log message or an Error object.
 	 * @param metadata - Optional metadata attached to the log.
 	 */
-	export const info = (tag: Tag, msg: string | Error, metadata?: any) => log('info', tag, msg, metadata)
+	export const info = (tag: Tag, msg: string | Error, metadata?: Record<string, any>) => log('info', tag, msg, metadata)
 	/**
 	 * Logs a `warn` message in the stdout and all the log pipes.
 	 *
@@ -53,7 +54,7 @@ export namespace Logger {
 	 * @param msg - The log message or an Error object.
 	 * @param metadata - Optional metadata attached to the log.
 	 */
-	export const warn = (tag: Tag, msg: string | Error, metadata?: any) => log('warn', tag, msg, metadata)
+	export const warn = (tag: Tag, msg: string | Error, metadata?: Record<string, any>) => log('warn', tag, msg, metadata)
 	/**
 	 * Logs an `error` message in the stdout and all the log pipes.
 	 *
@@ -61,7 +62,8 @@ export namespace Logger {
 	 * @param msg - The log message or an Error object.
 	 * @param metadata - Optional metadata attached to the log.
 	 */
-	export const error = (tag: Tag, msg: string | Error, metadata?: any) => log('error', tag, msg, metadata)
+	export const error = (tag: Tag, msg: string | Error, metadata?: Record<string, any>) =>
+		log('error', tag, msg, metadata)
 	/**
 	 * Logs a `critical` message in the stdout and all the log pipes.
 	 *
@@ -69,7 +71,8 @@ export namespace Logger {
 	 * @param msg - The log message or an Error object.
 	 * @param metadata - Optional metadata attached to the log.
 	 */
-	export const crit = (tag: Tag, msg: string | Error, metadata?: any) => log('critical', tag, msg, metadata)
+	export const crit = (tag: Tag, msg: string | Error, metadata?: Record<string, any>) =>
+		log('critical', tag, msg, metadata)
 
 	/**
 	 * Logs a message in the stdout and all the log pipes.
@@ -79,7 +82,7 @@ export namespace Logger {
 	 * @param msg - The log message or an Error object.
 	 * @param metadata - Optional metadata attached to the log.
 	 */
-	export const log = (level: Level, tag: Tag, msg: string | Error, metadata?: any) => {
+	export const log = (level: Level, tag: Tag, msg: string | Error, metadata?: Record<string, any>) => {
 		if (msg instanceof Error) {
 			msg = `[${msg.name}] ${msg.message}\n${msg.stack?.split('\n').slice(1).join('\n') ?? ''}`
 		}
@@ -95,7 +98,15 @@ export namespace Logger {
 		}
 
 		if (process.env.NODE_ENV === 'production') {
-			loggerOfLevel[level]({ timestamp: new Date().toISOString(), level, tag, message: msg, ...metadata })
+			loggerOfLevel[level](
+				JSON.stringify({
+					timestamp: new Date().toISOString(),
+					level,
+					tag,
+					message: msg,
+					...metadata,
+				})
+			)
 		} else {
 			loggerOfLevel[level](
 				`\x1B[${colorOfLevel[level]}m[${new Date().toISOString().replace(/T|Z/g, ' ').trim()}]`,

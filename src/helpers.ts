@@ -3,6 +3,7 @@ import { FastifyError, FastifyReply } from 'fastify'
 import { Logger } from './logger.js'
 import { RequestError, ResponseError } from './server.js'
 import { ServerReply } from './types.js'
+import { exportIssues } from './utils.js'
 
 /**
  * Wraps the FastifyReply object to provide custom reply methods.
@@ -52,16 +53,7 @@ export const replyBadRequest = (error: RequestError, reply: FastifyReply, metada
 		error: {
 			type: 'bad_request',
 			message: 'Oops! Looks like there was a problem with your request.',
-			details: error.issues.map((issue) => {
-				const { path, code, message, ...rest } = issue
-
-				return {
-					field: path.join('.'),
-					type: code,
-					message: message,
-					...rest,
-				}
-			}),
+			details: exportIssues(error.issues),
 		},
 	}
 
@@ -83,16 +75,7 @@ export const replyBadResponse = (error: ResponseError, reply: FastifyReply, meta
 		error: {
 			type: 'bad_response',
 			message: 'Something went wrong with your request while generating the response',
-			details: error.issues.map((issue) => {
-				const { path, code, message, ...rest } = issue
-
-				return {
-					field: path.join('.'),
-					type: code,
-					message: message,
-					...rest,
-				}
-			}),
+			details: exportIssues(error.issues),
 		},
 	}
 

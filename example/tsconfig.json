@@ -1,0 +1,25 @@
+{
+	"include": ["src"],
+	"compilerOptions": {
+		// Base options
+		"esModuleInterop": true,
+		"allowJs": true,
+		"resolveJsonModule": true,
+		"moduleDetection": "force",
+
+		// Node options
+		"lib": ["ES2022"],
+		"target": "ES2022",
+		"module": "NodeNext",
+		"moduleResolution": "NodeNext",
+
+		// Optimization
+		"skipLibCheck": true,
+
+		// Strictness
+		"strict": true,
+		"noImplicitReturns": false,
+		"noFallthroughCasesInSwitch": true,
+		"forceConsistentCasingInFileNames": true
+	}
+}
