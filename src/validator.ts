@@ -26,4 +26,6 @@ export const Is = {
 			size: z.number(),
 			mimetype: mimetype ? z.string().regex(mimetype) : z.string(),
 		}),
+
+	html: () => z.string(),
 }

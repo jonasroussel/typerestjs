@@ -12,6 +12,8 @@
 		"target": "ES2022",
 		"module": "NodeNext",
 		"moduleResolution": "NodeNext",
+		"jsx": "react",
+		"jsxFactory": "JSX.el",
 
 		// Optimization
 		"skipLibCheck": true,

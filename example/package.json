@@ -8,11 +8,11 @@
 	},
 	"scripts": {
 		"dev": "tsup --watch --onSuccess='node --enable-source-maps .'",
-		"build": "tsup",
+		"build": "tsup --minify",
 		"start": "node --enable-source-maps ."
 	},
 	"dependencies": {
-		"typerestjs": "file:../lib"
+		"typerestjs": "file:.."
 	},
 	"devDependencies": {
 		"@types/node": "^20.9.1",

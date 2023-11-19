@@ -37,6 +37,8 @@ export const replyWrapper = (reply: FastifyReply): ServerReply<any> => {
 		},
 
 		custom: () => reply,
+
+		html: (input) => reply.header('Content-Type', 'text/html').send(typeof input === 'string' ? input : input.render()),
 	}
 }
 

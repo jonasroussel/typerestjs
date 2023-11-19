@@ -70,6 +70,7 @@ export interface ServerReply<T extends SchemaType<Schema> = any> {
 		message?: string
 	) => FastifyReply
 	custom: () => FastifyReply
+	html: (input: string | JSX.Element) => FastifyReply
 }
 
 export type Middleware<T extends SchemaType<Schema> = any> = (
