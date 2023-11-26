@@ -1,11 +1,12 @@
+import type { Server as HTTPServer } from 'http'
+import type { Middleware, PluginsOptions, ServerInstance, ServerRequest, ZodTypeProvider } from './types.js'
+
 import formbody from '@fastify/formbody'
 import multipart, { FastifyMultipartBaseOptions, Multipart, MultipartFile } from '@fastify/multipart'
 import { randomUUID } from 'crypto'
-import fastify, { FastifyBaseLogger, FastifyInstance, FastifyListenOptions, FastifyServerOptions } from 'fastify'
+import fastify, { FastifyBaseLogger, FastifyListenOptions, FastifyServerOptions } from 'fastify'
 import { createWriteStream } from 'fs'
 import { unlink } from 'fs/promises'
-import { glob } from 'glob'
-import { ServerResponse as HTTPResponse, Server as HTTPServer, IncomingMessage } from 'http'
 import { extensions } from 'mime-types'
 import { tmpdir } from 'os'
 import path from 'path'
@@ -14,7 +15,7 @@ import { ZodAny, ZodIssue } from 'zod'
 
 import { replyBadRequest, replyBadResponse, replyFileTooLarge, replyUnknownError, replyWrapper } from './helpers.js'
 import { Logger } from './logger.js'
-import { Middleware, PluginsOptions, Route, ServerRequest, ZodTypeProvider } from './types.js'
+import { loadResources } from './resources.js'
 import { exportIssues, isField, isFile, parseDatesInObject, pathOf } from './utils.js'
 
 // Error thrown when the request schema validation failed
@@ -40,13 +41,7 @@ export class ResponseError extends Error {
 }
 
 export class Server {
-	public instance: FastifyInstance<
-		HTTPServer<typeof IncomingMessage, typeof HTTPResponse>,
-		IncomingMessage,
-		HTTPResponse<IncomingMessage>,
-		FastifyBaseLogger,
-		ZodTypeProvider
-	>
+	public instance: ServerInstance
 
 	constructor(
 		options?: FastifyServerOptions<HTTPServer, FastifyBaseLogger> & {
@@ -94,7 +89,6 @@ export class Server {
 		this.instance.setErrorHandler((error, req, reply) => {
 			const metadata = {
 				method: req.method,
-				// @ts-ignore
 				path: req.routeOptions.config.url ?? pathOf(req.url) ?? req.url,
 				ip: req.ip,
 				params: req.params,
@@ -179,7 +173,6 @@ export class Server {
 		this.instance.addHook('onResponse', async (req, reply) => {
 			const data = {
 				method: req.method,
-				// @ts-ignore
 				path: req.routeOptions.config.url ?? pathOf(req.url) ?? req.url,
 				ip: req.ip,
 				status: reply.statusCode,
@@ -229,71 +222,7 @@ export class Server {
 	async start(options?: FastifyListenOptions) {
 		Logger.debug('server', 'Server starting...')
 
-		this.instance.after(async () => {
-			const files = await glob('./dist/resources/*/*.{controller,route,schema,service}.js')
-
-			const resources = files.reduce<Record<string, Record<string, string>>>((resources, file) => {
-				const [_, name, type] = file.match(/resources\/(\w+)\/\w+\.(controller|route|schema|service)\.js$/i) ?? []
-				if (!name || !type) return resources
-
-				return { ...resources, [name]: { ...resources[name], [type]: file } }
-			}, {})
-
-			for (let resourceName in resources) {
-				const resource = resources[resourceName]
-				if (!resource.route) continue
-
-				try {
-					const expt = await import(path.resolve(resource.route))
-					const router = expt[Object.keys(expt)[0]]
-
-					const { PREFIX = '', ...routes } = router ?? {}
-
-					for (let routeName in routes) {
-						try {
-							const { path, middlewares, controller, ...props } = routes[routeName] as Route
-
-							this.instance.route({
-								url: `${PREFIX}${path.replace(/\/+$/, '')}`,
-								...props,
-								preParsing: (req, _, payload, done) => {
-									// @ts-ignore
-									if (req.routeOptions.config.rawBody === true) {
-										const chunks: Buffer[] = []
-
-										payload.on('data', (chunk) => {
-											if (payload.readableEncoding) chunks.push(Buffer.from(chunk, payload.readableEncoding))
-											else chunks.push(chunk)
-										})
-
-										payload.on('end', () => {
-											req.rawBody = Buffer.concat(chunks)
-											req.encoding = payload.readableEncoding ?? undefined
-										})
-									}
-
-									done(null, payload)
-								},
-								...(middlewares
-									? {
-											preValidation: async (req, reply) => {
-												for (let middleware of middlewares) {
-													await middleware(req, replyWrapper(reply))
-												}
-											},
-									  }
-									: {}),
-								handler: (req, reply) => controller(req, replyWrapper(reply)),
-							})
-						} catch (_) {
-							Logger.warn('server', `${resourceName}.${routeName} fails to load`)
-						}
-					}
-				} catch (_) {
-					Logger.warn('server', `${resourceName} fails to load`)
-				}
-			}
-		})
+		this.instance.after(() => loadResources(this.instance))
 
 		await this.instance.ready()
 

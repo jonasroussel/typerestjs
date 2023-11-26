@@ -1,3 +1,5 @@
+import 'typerestjs/telemetry'
+
 import { Server } from 'typerestjs'
 
 const server = new Server()

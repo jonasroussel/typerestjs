@@ -39,6 +39,7 @@ export namespace Logger {
 	 */
 	export const debug = (tag: Tag, msg: string | Error, metadata?: Record<string, any>) =>
 		log('debug', tag, msg, metadata)
+
 	/**
 	 * Logs an `info` message in the stdout and all the log pipes.
 	 *
@@ -47,6 +48,7 @@ export namespace Logger {
 	 * @param metadata - Optional metadata attached to the log.
 	 */
 	export const info = (tag: Tag, msg: string | Error, metadata?: Record<string, any>) => log('info', tag, msg, metadata)
+
 	/**
 	 * Logs a `warn` message in the stdout and all the log pipes.
 	 *
@@ -55,6 +57,7 @@ export namespace Logger {
 	 * @param metadata - Optional metadata attached to the log.
 	 */
 	export const warn = (tag: Tag, msg: string | Error, metadata?: Record<string, any>) => log('warn', tag, msg, metadata)
+
 	/**
 	 * Logs an `error` message in the stdout and all the log pipes.
 	 *
@@ -64,6 +67,7 @@ export namespace Logger {
 	 */
 	export const error = (tag: Tag, msg: string | Error, metadata?: Record<string, any>) =>
 		log('error', tag, msg, metadata)
+
 	/**
 	 * Logs a `critical` message in the stdout and all the log pipes.
 	 *

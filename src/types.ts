@@ -3,12 +3,21 @@ import type { FastifyCorsOptions } from '@fastify/cors'
 import type { FastifyMultipartBaseOptions } from '@fastify/multipart'
 import type { RateLimitOptions, RateLimitPluginOptions } from '@fastify/rate-limit'
 import type { FastifyStaticOptions } from '@fastify/static'
-import type { FastifyContextConfig, FastifyReply, FastifyRequest, FastifyTypeProvider } from 'fastify'
+import type { Span } from '@opentelemetry/api'
+import type {
+	FastifyBaseLogger,
+	FastifyContextConfig,
+	FastifyInstance,
+	FastifyReply,
+	FastifyRequest,
+	FastifyTypeProvider,
+} from 'fastify'
+import type { ServerResponse as HTTPResponse, Server as HTTPServer, IncomingMessage } from 'http'
 import type { ZodType, ZodTypeAny, input, output, z } from 'zod'
 
 declare module 'fastify' {
 	interface FastifyContextConfig extends Record<string, any> {
-		rateLimit?: RateLimitOptions
+		rateLimit?: RateLimitOptions | false
 		multipartLimits?: FastifyMultipartBaseOptions['limits']
 		rawBody?: boolean
 	}
@@ -16,8 +25,17 @@ declare module 'fastify' {
 	interface FastifyRequest {
 		rawBody?: Buffer
 		encoding?: BufferEncoding
+		_spans: Record<string, Span>
 	}
 }
+
+export type ServerInstance = FastifyInstance<
+	HTTPServer<typeof IncomingMessage, typeof HTTPResponse>,
+	IncomingMessage,
+	HTTPResponse<IncomingMessage>,
+	FastifyBaseLogger,
+	ZodTypeProvider
+>
 
 export type PluginsOptions = {
 	cors: FastifyCorsOptions
@@ -78,7 +96,7 @@ export type Middleware<T extends SchemaType<Schema> = any> = (
 	reply: ServerReply<T>
 ) => Promise<any>
 
-export type Controller<T extends SchemaType<Schema> = any> = (
+export type Handler<T extends SchemaType<Schema> = any> = (
 	req: ServerRequest<T>,
 	reply: ServerReply<T>
 ) => Promise<FastifyReply>
@@ -89,12 +107,12 @@ export type Route<
 		querystring: ZodTypeAny
 		params: ZodTypeAny
 		response: { [key in number | string]: ZodTypeAny }
-	}>
+	}>,
 > = {
 	method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 	path: `/${string}`
 	middlewares?: Middleware<T>[]
 	schema?: Schema
-	controller: Controller<T>
+	handler: Handler<T>
 	config?: FastifyContextConfig
 }
