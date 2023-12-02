@@ -27,6 +27,10 @@ declare module 'fastify' {
 		encoding?: BufferEncoding
 		_spans: Record<string, Span>
 	}
+
+	interface FastifyReply {
+		error?: Error
+	}
 }
 
 export type ServerInstance = FastifyInstance<
@@ -42,6 +46,10 @@ export type PluginsOptions = {
 	cookie: FastifyCookieOptions
 	'rate-limit': RateLimitPluginOptions
 	static: FastifyStaticOptions
+	telemetry: {
+		serviceName: string
+		serviceVersion: string
+	}
 }
 
 export interface ZodTypeProvider extends FastifyTypeProvider {

@@ -15,6 +15,7 @@ import { ZodAny, ZodIssue } from 'zod'
 
 import { replyBadRequest, replyBadResponse, replyFileTooLarge, replyUnknownError, replyWrapper } from './helpers.js'
 import { Logger } from './logger.js'
+import { loadMiddlewares } from './middlewares.js'
 import { loadResources } from './resources.js'
 import { exportIssues, isField, isFile, parseDatesInObject, pathOf } from './utils.js'
 
@@ -42,6 +43,7 @@ export class ResponseError extends Error {
 
 export class Server {
 	public instance: ServerInstance
+	private telemetry: boolean = false
 
 	constructor(
 		options?: FastifyServerOptions<HTTPServer, FastifyBaseLogger> & {
@@ -176,17 +178,21 @@ export class Server {
 				path: req.routeOptions.config.url ?? pathOf(req.url) ?? req.url,
 				ip: req.ip,
 				status: reply.statusCode,
-				rs: Math.round(reply.getResponseTime()),
+				time: Math.round(reply.getResponseTime()),
 				params: req.params,
 				query: req.query,
 			}
 
-			Logger.log(
-				data.status >= 500 ? 'error' : 'info',
-				'http',
-				`${data.method} ${data.path} ${data.ip} ${data.status} (${data.rs}ms)`,
-				data
-			)
+			if (reply.error) {
+				Logger.crit('http', reply.error, data)
+			} else {
+				Logger.log(
+					data.status >= 500 ? 'error' : 'info',
+					'http',
+					`${data.method} ${data.path} ${data.ip} ${data.status} (${data.time}ms)`,
+					data
+				)
+			}
 		})
 	}
 
@@ -199,6 +205,25 @@ export class Server {
 			} as PluginsOptions['static']
 
 			await this.instance.register((await import('@fastify/static')).default, newOpts)
+		} else if (plugin === 'telemetry') {
+			const { NodeSDK } = await import('@opentelemetry/sdk-node')
+			const { Resource } = await import('@opentelemetry/resources')
+			const { SemanticResourceAttributes } = await import('@opentelemetry/semantic-conventions')
+			const { ConsoleSpanExporter } = await import('@opentelemetry/sdk-trace-node')
+
+			const serviceName = (opts as PluginsOptions['telemetry']).serviceName
+			const serviceVersion = (opts as PluginsOptions['telemetry']).serviceVersion
+
+			const sdk = new NodeSDK({
+				resource: new Resource({
+					[SemanticResourceAttributes.SERVICE_NAME]: serviceName,
+					[SemanticResourceAttributes.SERVICE_VERSION]: serviceVersion,
+				}),
+				traceExporter: new ConsoleSpanExporter(),
+			})
+
+			sdk.start()
+			this.telemetry = true
 		} else {
 			await this.instance.register((await import(`@fastify/${plugin}`)).default, opts)
 		}
@@ -208,21 +233,11 @@ export class Server {
 		this.instance.addHook('preValidation', (req, reply) => middleware(req, replyWrapper(reply)))
 	}
 
-	on(event: 'ready' | 'error', action: (...args: any[]) => Promise<void> | void) {
-		switch (event) {
-			case 'ready':
-				this.instance.addHook('onReady', action)
-				break
-			case 'error':
-				this.instance.addHook('onError', action)
-				break
-		}
-	}
-
 	async start(options?: FastifyListenOptions) {
 		Logger.debug('server', 'Server starting...')
 
-		this.instance.after(() => loadResources(this.instance))
+		if (this.telemetry) await loadMiddlewares()
+		await loadResources(this.instance, this.telemetry)
 
 		await this.instance.ready()
 

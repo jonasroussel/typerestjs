@@ -10,10 +10,6 @@
 		".": {
 			"types": "./lib/index.ts",
 			"default": "./lib/index.js"
-		},
-		"./telemetry": {
-			"types": "./lib/telemetry.ts",
-			"default": "./lib/telemetry.js"
 		}
 	},
 	"files": [

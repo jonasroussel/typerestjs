@@ -89,13 +89,14 @@ const loadController = async (file: string) => {
 		const handlers = Object.entries<Handler>(controller)
 
 		for (let [handlerName, handler] of handlers) {
-			controller[handlerName] = (req: ServerRequest, reply: ServerReply) => {
-				return tracer.startActiveSpan('handler', async (span) => {
+			controller[handlerName] = async (req: ServerRequest, reply: ServerReply) => {
+				const result = await tracer.startActiveSpan('handler', async (span) => {
 					span.setAttribute(SemanticAttributes.CODE_FUNCTION, handlerName)
 					span.setAttribute(SemanticAttributes.CODE_NAMESPACE, controllerName)
 
 					try {
 						const result = await handler(req, reply)
+						console.log('handler finished')
 						span.setStatus({ code: SpanStatusCode.OK })
 						return result
 					} catch (error) {
@@ -108,6 +109,8 @@ const loadController = async (file: string) => {
 						span.end()
 					}
 				})
+
+				return reply.success(200, result)
 			}
 		}
 	} catch (ex) {
@@ -122,13 +125,14 @@ const loadController = async (file: string) => {
  * @param file - The path to the file containing the router.
  * @param server - The server instance to register the routes with.
  */
-const loadRouter = async (file: string, server: ServerInstance) => {
+const loadRouter = async (file: string, server: ServerInstance, telemetry: boolean) => {
 	try {
 		const exports = await import(path.resolve(file))
 		const routerName = Object.keys(exports)[0]
 		const { PREFIX = '', ...router } = exports[routerName] ?? {}
 
-		const tracer = OpenTelemetry.trace.getTracer(routerName)
+		let tracer: OpenTelemetry.Tracer
+		if (telemetry) tracer = OpenTelemetry.trace.getTracer(routerName)
 
 		const routes = Object.entries<Route>(router)
 		for (let [routeName, route] of routes) {
@@ -141,29 +145,31 @@ const loadRouter = async (file: string, server: ServerInstance) => {
 				method,
 				config,
 
-				onRequest: (req, _, done) => {
-					tracer.startActiveSpan(`${method} ${url}`, (span) => {
-						span.setAttribute(SemanticAttributes.CODE_FUNCTION, routeName)
-						span.setAttribute(SemanticAttributes.CODE_NAMESPACE, routerName)
+				...(telemetry && {
+					onRequest: (req, _, done) => {
+						tracer.startActiveSpan(`${method} ${url}`, (span) => {
+							span.setAttribute(SemanticAttributes.CODE_FUNCTION, routeName)
+							span.setAttribute(SemanticAttributes.CODE_NAMESPACE, routerName)
 
-						span.setAttributes({
-							[SemanticAttributes.HTTP_METHOD]: method,
-							[SemanticAttributes.HTTP_ROUTE]: url,
-							[SemanticAttributes.HTTP_URL]: req.url,
-							[SemanticAttributes.HTTP_CLIENT_IP]: req.ip,
-							[SemanticAttributes.HTTP_HOST]: req.headers['host'],
-							[SemanticAttributes.HTTP_REQUEST_CONTENT_LENGTH]: req.headers['content-length'] ?? '0',
-							[SemanticAttributes.HTTP_USER_AGENT]: req.headers['user-agent'] ?? '',
+							span.setAttributes({
+								[SemanticAttributes.HTTP_METHOD]: method,
+								[SemanticAttributes.HTTP_ROUTE]: url,
+								[SemanticAttributes.HTTP_URL]: req.url,
+								[SemanticAttributes.HTTP_CLIENT_IP]: req.ip,
+								[SemanticAttributes.HTTP_HOST]: req.headers['host'],
+								[SemanticAttributes.HTTP_REQUEST_CONTENT_LENGTH]: req.headers['content-length'] ?? '0',
+								[SemanticAttributes.HTTP_USER_AGENT]: req.headers['user-agent'] ?? '',
+							})
+
+							req._spans = {}
+							req._spans['top'] = span
+							done()
 						})
-
-						req._spans = {}
-						req._spans['top'] = span
-						done()
-					})
-				},
+					},
+				}),
 
 				preParsing: (req, _, payload, done) => {
-					req._spans['parsing'] = tracer.startSpan('parsing')
+					if (telemetry) req._spans['parsing'] = tracer.startSpan('parsing')
 
 					if (req.routeOptions.config.rawBody === true) {
 						const chunks: Buffer[] = []
@@ -183,55 +189,67 @@ const loadRouter = async (file: string, server: ServerInstance) => {
 				},
 
 				preValidation: async (req, reply) => {
-					req._spans['parsing'].end()
-					delete req._spans['parsing']
+					if (telemetry) {
+						req._spans['parsing'].end()
+						delete req._spans['parsing']
+					}
 
 					for (let middleware of middlewares ?? []) {
 						await middleware(req, replyWrapper(reply))
 					}
 
-					req._spans['validation'] = tracer.startSpan('validation')
+					if (telemetry) req._spans['validation'] = tracer.startSpan('validation')
 				},
 
 				schema,
 
-				preHandler: (req, _, done) => {
-					req._spans['validation'].end()
-					delete req._spans['validation']
+				...(telemetry && {
+					preHandler: (req, _, done) => {
+						req._spans['validation'].end()
+						delete req._spans['validation']
 
-					done()
-				},
+						done()
+					},
+				}),
 
 				handler: (req, reply) => handler(req, replyWrapper(reply)),
 
-				preSerialization: (req, _, payload, done) => {
-					req._spans['serialization'] = tracer.startSpan('serialization')
-					done(null, payload)
-				},
+				...(telemetry && {
+					preSerialization: (req, _, payload, done) => {
+						console.log('serialization start')
+						req._spans['serialization'] = tracer.startSpan('serialization')
+						done(null, payload)
+					},
+				}),
 
-				onSend: (req, _, payload, done) => {
-					req._spans['serialization'].end()
-					delete req._spans['serialization']
+				...(telemetry && {
+					onSend: (req, _, payload, done) => {
+						req._spans['serialization'].end()
+						delete req._spans['serialization']
 
-					req._spans['sending'] = tracer.startSpan('sending')
-					done(null, payload)
-				},
+						console.log('sending start')
+						req._spans['sending'] = tracer.startSpan('sending')
+						done(null, payload)
+					},
+				}),
 
-				onResponse: (req, reply, done) => {
-					req._spans['sending'].end()
-					delete req._spans['sending']
+				...(telemetry && {
+					onResponse: (req, reply, done) => {
+						req._spans['sending'].end()
+						delete req._spans['sending']
 
-					const span = req._spans['top']
+						const span = req._spans['top']
 
-					span.setAttributes({
-						[SemanticAttributes.HTTP_STATUS_CODE]: reply.statusCode,
-						[SemanticAttributes.HTTP_RESPONSE_CONTENT_LENGTH]: reply.getHeader('content-length') ?? '0',
-					})
-					span.setStatus({ code: reply.statusCode < 500 ? SpanStatusCode.OK : SpanStatusCode.ERROR })
+						span.setAttributes({
+							[SemanticAttributes.HTTP_STATUS_CODE]: reply.statusCode,
+							[SemanticAttributes.HTTP_RESPONSE_CONTENT_LENGTH]: reply.getHeader('content-length') ?? '0',
+						})
+						span.setStatus({ code: reply.statusCode < 500 ? SpanStatusCode.OK : SpanStatusCode.ERROR })
 
-					span.end()
-					done()
-				},
+						span.end()
+						done()
+					},
+				}),
 			})
 		}
 	} catch (ex) {
@@ -247,10 +265,10 @@ const loadRouter = async (file: string, server: ServerInstance) => {
  * @param resource - The resource object containing service and router information.
  * @param server - The server instance.
  */
-const loadResource = async (resource: Record<ResourceType, string>, server: ServerInstance) => {
-	if (resource.service !== undefined) await loadService(resource.service)
-	if (resource.controller !== undefined) await loadController(resource.controller)
-	if (resource.router !== undefined) await loadRouter(resource.router, server)
+const loadResource = async (resource: Record<ResourceType, string>, server: ServerInstance, telemetry: boolean) => {
+	if (resource.service !== undefined && telemetry) await loadService(resource.service)
+	if (resource.controller !== undefined && telemetry) await loadController(resource.controller)
+	if (resource.router !== undefined) await loadRouter(resource.router, server, telemetry)
 }
 
 /**
@@ -261,7 +279,7 @@ const loadResource = async (resource: Record<ResourceType, string>, server: Serv
  *
  * @returns A promise that resolves when all the resources are loaded.
  */
-export const loadResources = async (server: ServerInstance) => {
+export const loadResources = async (server: ServerInstance, telemetry: boolean) => {
 	const files = await glob('./dist/resources/*/*.{controller,router,schema,service}.js')
 
 	const resources = files.reduce<Record<string, Record<ResourceType, string>>>((resources, file) => {
@@ -271,5 +289,5 @@ export const loadResources = async (server: ServerInstance) => {
 		return { ...resources, [name]: { ...resources[name], [type]: file } }
 	}, {})
 
-	await Promise.all(Object.values(resources).map((resource) => loadResource(resource, server)))
+	await Promise.all(Object.values(resources).map((resource) => loadResource(resource, server, telemetry)))
 }

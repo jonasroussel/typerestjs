@@ -6,9 +6,11 @@ export namespace HelloController {
 	/**
 	 * @GET /hello/:name
 	 */
+	// @ts-ignore
 	export const greeting: Handler<HelloSchema.greeting> = async (req, reply) => {
 		const msg = HelloService.sayHello(req.params.name)
 
-		return reply.success(200, msg)
+		return msg
+		// return reply.success(200, msg)
 	}
 }

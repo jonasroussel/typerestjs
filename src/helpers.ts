@@ -59,7 +59,7 @@ export const replyBadRequest = (error: RequestError, reply: FastifyReply, metada
 		},
 	}
 
-	Logger.error('http', error, { ...metadata, status: 400, response })
+	reply.error = error
 
 	reply.status(400).send(response)
 }
@@ -81,7 +81,7 @@ export const replyBadResponse = (error: ResponseError, reply: FastifyReply, meta
 		},
 	}
 
-	Logger.crit('http', error, { ...metadata, status: 500, response })
+	reply.error = error
 
 	reply.status(500).send(response)
 }
@@ -104,8 +104,6 @@ export const replyFileTooLarge = (error: FastifyError, reply: FastifyReply, meta
 
 	error.message = `Request file too large. (limit: ${metadata.limit} bytes)`
 
-	Logger.error('http', error, { ...metadata, status: 413, response })
-
 	reply.status(413).send(response)
 }
 
@@ -125,7 +123,7 @@ export const replyUnknownError = (error: FastifyError, reply: FastifyReply, meta
 		},
 	}
 
-	Logger.crit('server', error, { ...metadata, status: 500, response })
+	reply.error = error
 
 	reply.status(500).send(response)
 }
