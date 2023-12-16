@@ -94,15 +94,24 @@ export namespace Logger {
 			}
 		}
 
-		// In development, prettify HTTP logs
-		if (process.env.NODE_ENV !== 'production' && tag === 'http') metadata = undefined
-
-		loggerOfLevel[level](
-			`\x1B[${colorOfLevel[level]}m[${level.toUpperCase()}]`,
-			`[${tag.toUpperCase()}]`,
-			msg,
-			...(metadata ? [`\n${JSON.stringify(metadata, null, 2)}`] : []),
-			'\x1B[0m'
-		)
+		if (process.env.NODE_ENV === 'production') {
+			loggerOfLevel[level](
+				JSON.stringify({
+					timestamp: new Date().toISOString(),
+					level,
+					tag,
+					message: msg,
+					...metadata,
+				})
+			)
+		} else {
+			loggerOfLevel[level](
+				`\x1B[${colorOfLevel[level]}m[${new Date().toISOString().replace(/T|Z/g, ' ').trim()}]`,
+				`[${level.toUpperCase()}]`,
+				`[${tag.toUpperCase()}]`,
+				msg,
+				'\x1B[0m'
+			)
+		}
 	}
 }

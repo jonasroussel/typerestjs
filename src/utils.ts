@@ -1,3 +1,5 @@
+import type { ZodIssue } from 'zod'
+
 import { Multipart, MultipartValue, SavedMultipartFile } from '@fastify/multipart'
 
 export const DATE_REGEX = /^(\d{4})-0?(\d+)-0?(\d+)[T ]0?(\d+):0?(\d+)(:0?(\d+))?(\.(\d{3})Z?)?$/
@@ -99,3 +101,22 @@ export const isField = (input: Multipart): input is MultipartValue<string> => in
  * @returns A boolean value indicating whether the input is a file.
  */
 export const isFile = (input: Multipart): input is SavedMultipartFile => input.type === 'file'
+
+/**
+ * Transforms an array of ZodIssues into a more simplified format.
+ *
+ * @param issues - The array of ZodIssues to be transformed.
+ * @returns An array of transformed issues.
+ */
+export const exportIssues = (issues: ZodIssue[]) => {
+	return issues.map((issue) => {
+		const { path, code, message, ...rest } = issue
+
+		return {
+			field: path.join('.'),
+			type: code,
+			message: message,
+			...rest,
+		}
+	})
+}

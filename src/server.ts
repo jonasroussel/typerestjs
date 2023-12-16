@@ -15,15 +15,16 @@ import { ZodAny, ZodIssue } from 'zod'
 import { replyBadRequest, replyBadResponse, replyFileTooLarge, replyUnknownError, replyWrapper } from './helpers'
 import { Logger } from './logger'
 import { Middleware, PluginsOptions, Route, ServerRequest, ZodTypeProvider } from './types'
-import { isField, isFile, parseDatesInObject, parseStringValue, pathOf } from './utils'
+import { exportIssues, isField, isFile, parseDatesInObject, parseStringValue, pathOf } from './utils'
 
 // Error thrown when the request schema validation failed
 export class RequestError extends Error {
 	public issues: ZodIssue[]
 
-	constructor(issues: ZodIssue[]) {
-		super("Request doesn't match the schema")
+	constructor(method: string, url: string, issues: ZodIssue[]) {
+		super(`Request (${method} ${url}) doesn't match the schema`)
 		this.issues = issues
+		this.stack = '\n' + JSON.stringify(exportIssues(issues), null, 2)
 	}
 }
 
@@ -31,9 +32,10 @@ export class RequestError extends Error {
 export class ResponseError extends Error {
 	public issues: ZodIssue[]
 
-	constructor(issues: ZodIssue[]) {
-		super("Response doesn't match the schema")
+	constructor(method: string, url: string, issues: ZodIssue[]) {
+		super(`Response (${method} ${url}) doesn't match the schema`)
 		this.issues = issues
+		this.stack = '\n' + JSON.stringify(exportIssues(issues), null, 2)
 	}
 }
 
@@ -67,23 +69,23 @@ export class Server {
 		}).withTypeProvider<ZodTypeProvider>()
 
 		// Request schema validation
-		this.instance.setValidatorCompiler<ZodAny>(({ schema }) => {
+		this.instance.setValidatorCompiler<ZodAny>(({ schema, url, method }) => {
 			return (data): any => {
 				const result = schema.safeParse(data)
 				if (result.success) return { value: result.data }
-				return { error: new RequestError(result.error.issues) }
+				return { error: new RequestError(method, url, result.error.issues) }
 			}
 		})
 
 		// Response schema validation
-		this.instance.setSerializerCompiler<ZodAny | { properties: ZodAny }>(({ schema }) => {
+		this.instance.setSerializerCompiler<ZodAny | { properties: ZodAny }>(({ schema, url, method }) => {
 			return (data) => {
 				if (data.success === false) return JSON.stringify(data)
 
 				const result = ('properties' in schema ? schema.properties : schema).safeParse(data)
 				if (result.success) return JSON.stringify(result.data)
 
-				throw new ResponseError(result.error.issues)
+				throw new ResponseError(method, url, result.error.issues)
 			}
 		})
 
@@ -189,6 +191,8 @@ export class Server {
 				rs: Math.round(reply.getResponseTime()),
 				params: req.params,
 				query: req.query,
+				// @ts-ignore
+				...(req.user?.id ? { user: req.user.id } : {}),
 			}
 
 			Logger.log(
