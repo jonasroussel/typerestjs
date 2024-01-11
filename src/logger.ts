@@ -26,7 +26,7 @@ export namespace Logger {
 	 *
 	 * @param pipe - A pipe function that take the `level, tag, msg & metadata` as input
 	 */
-	export const use = (pipe: LogPipe) => {
+	export const pipe = (pipe: LogPipe) => {
 		logPipes.push(pipe)
 	}
 

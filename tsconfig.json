@@ -6,8 +6,9 @@
 		"outDir": "./lib",
 		"esModuleInterop": true,
 		"moduleDetection": "force",
-		"declaration": true,
-		"sourceMap": false,
+		"declaration": false,
+		"sourceMap": true,
+		"sourceRoot": "./",
 
 		// Node options
 		"lib": ["ES2022"],

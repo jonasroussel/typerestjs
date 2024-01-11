@@ -8,7 +8,7 @@ import type { ZodType, ZodTypeAny, input, output, z } from 'zod'
 
 declare module 'fastify' {
 	interface FastifyContextConfig extends Record<string, any> {
-		rateLimit?: RateLimitOptions
+		rateLimit?: RateLimitOptions | false
 		multipartLimits?: FastifyMultipartBaseOptions['limits']
 		rawBody?: boolean
 	}
@@ -16,6 +16,10 @@ declare module 'fastify' {
 	interface FastifyRequest {
 		rawBody?: Buffer
 		encoding?: BufferEncoding
+	}
+
+	interface FastifyReply {
+		error?: Error
 	}
 }
 

@@ -94,7 +94,6 @@ export class Server {
 		this.instance.setErrorHandler((error, req, reply) => {
 			const metadata = {
 				method: req.method,
-				// @ts-ignore
 				path: req.routeOptions.config.url ?? pathOf(req.url) ?? req.url,
 				ip: req.ip,
 				params: req.params,
@@ -179,7 +178,6 @@ export class Server {
 		this.instance.addHook('onResponse', async (req, reply) => {
 			const data = {
 				method: req.method,
-				// @ts-ignore
 				path: req.routeOptions.config.url ?? pathOf(req.url) ?? req.url,
 				ip: req.ip,
 				status: reply.statusCode,
@@ -188,12 +186,16 @@ export class Server {
 				query: req.query,
 			}
 
-			Logger.log(
-				data.status >= 500 ? 'error' : 'info',
-				'http',
-				`${data.method} ${data.path} ${data.ip} ${data.status} (${data.rs}ms)`,
-				data
-			)
+			if (reply.error) {
+				Logger.crit('http', reply.error, data)
+			} else {
+				Logger.log(
+					data.status >= 500 ? 'error' : 'info',
+					'http',
+					`${data.method} ${data.path} ${data.ip} ${data.status} (${data.rs}ms)`,
+					data
+				)
+			}
 		})
 	}
 
@@ -257,7 +259,6 @@ export class Server {
 								url: `${PREFIX}${path.replace(/\/+$/, '')}`,
 								...props,
 								preParsing: (req, _, payload, done) => {
-									// @ts-ignore
 									if (req.routeOptions.config.rawBody === true) {
 										const chunks: Buffer[] = []
 
